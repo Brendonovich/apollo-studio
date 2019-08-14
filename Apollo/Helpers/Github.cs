@@ -72,13 +72,6 @@ namespace Apollo.Helpers {
             
             UpdateChecked = true;
 
-            if (Preferences.CheckForUpdates && release.Name != Program.Version && download != null)
-                return await MessageWindow.Create(
-                    $"A new version of Apollo Studio is available ({release.Name} - {download.Size.Bytes().Humanize("#.##")}).\n\n" +
-                    "Do you want to update to the latest version?",
-                    new string[] { "Yes", "No" }, null
-                ) == "Yes";
-
             return false;
         }
     }
