@@ -222,11 +222,11 @@ namespace Apollo.Elements {
 
         public Launchpad() => CreateScreen();
 
-        public Launchpad(IMidiInputDeviceInfo input, IMidiOutputDeviceInfo output) {
+        public Launchpad(string name, IMidiInputDeviceInfo input, IMidiOutputDeviceInfo output) {
             Input = input.CreateDevice();
             Output = output.CreateDevice();
 
-            Name = input.Name;
+            Name = name;
 
             Input.Open();
             Output.Open();

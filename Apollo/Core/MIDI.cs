@@ -128,12 +128,12 @@ namespace Apollo.Core {
             }
         }
 
-        public static Launchpad Connect(IMidiInputDeviceInfo input = null, IMidiOutputDeviceInfo output = null) {
+        public static Launchpad Connect(string name, IMidiInputDeviceInfo input = null, IMidiOutputDeviceInfo output = null) {
             lock (locker) {
                 Launchpad ret = null;
 
                 foreach (Launchpad device in Devices) {
-                    if (device.Name == input.Name) {
+                    if (device.Name == name) {
                         ret = device;
                         updated |= !device.Available;
 
@@ -144,7 +144,7 @@ namespace Apollo.Core {
                     }
                 }
 
-                Devices.Add(ret = new Launchpad(input, output));
+                Devices.Add(ret = new Launchpad(name, input, output));
                 updated = true;
                 return ret;
             }
@@ -154,7 +154,7 @@ namespace Apollo.Core {
             lock (locker) {
                 if (lp.GetType() != typeof(VirtualLaunchpad))
                     foreach (IMidiOutputDeviceInfo output in MidiDeviceManager.Default.OutputDevices)
-                        if (lp.Name.Replace("MIDIIN", "") == output.Name.Replace("MIDIOUT", "")) return;
+                        if (lp.Name.Replace("MIDIIN", "") == $"{output.Name} ({output.Port})".Replace("MIDIOUT", "")) return;
 
                 lp.Disconnect();
                 updated = true;
@@ -164,9 +164,12 @@ namespace Apollo.Core {
         public static void Rescan(object sender, EventArgs e) {
             lock (locker) {
                 foreach (IMidiInputDeviceInfo input in MidiDeviceManager.Default.InputDevices)
-                    foreach (IMidiOutputDeviceInfo output in MidiDeviceManager.Default.OutputDevices)
-                        if (input.Name.Replace("MIDIIN", "") == output.Name.Replace("MIDIOUT", ""))
-                            Connect(input, output);
+                    foreach (IMidiOutputDeviceInfo output in MidiDeviceManager.Default.OutputDevices) {
+                        string in_name = $"{input.Name} ({input.Port})";
+                        string out_name = $"{output.Name} ({output.Port})";
+                        if (in_name.Replace("MIDIIN", "") == out_name.Replace("MIDIOUT", ""))
+                            Connect(in_name, input, output);
+                    }
 
                 foreach (Launchpad device in Devices)
                     if (device.GetType() == typeof(Launchpad) && device.Available)
