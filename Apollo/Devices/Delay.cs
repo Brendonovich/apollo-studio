@@ -98,10 +98,13 @@ namespace Apollo.Devices {
         }
 
         protected override void Stop() {
-            foreach (Courier i in timers) i.Dispose();
-            timers.Clear();
+            lock (locker) {
+                foreach (Courier i in timers) i.Dispose();
+                timers.Clear();
+                
+                buffer.Clear();
+            }
             
-            buffer.Clear();
             locker = new object();
         }
 
