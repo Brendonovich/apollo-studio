@@ -19,6 +19,7 @@ namespace Apollo.Structures {
         int _range = 200;
         public Stack<int> MultiTarget = new Stack<int>();
         public bool HashIndex = true;
+        public DoubleTuple Coordinates;
 
         public byte Index {
             get => _index;
@@ -49,13 +50,15 @@ namespace Apollo.Structures {
 
         public Stack<int> CopyMultiTarget() => new Stack<int>(MultiTarget.ToArray());
 
-        public Signal Clone() => new Signal(Origin, Source, Index, Color.Clone(), (int[])Macros?.Clone(), Layer, BlendingMode, BlendingRange, CopyMultiTarget()) {
+        public Signal Clone() => new Signal(Origin, Source, Index, Color.Clone(), (int[])Macros?.Clone(), Layer, BlendingMode, BlendingRange, CopyMultiTarget(), Coordinates.Clone()) {
             HashIndex = HashIndex
         };
 
         public Signal With(byte index = 11, Color color = null) => new Signal(Origin, Source, index, color, (int[])Macros.Clone(), Layer, BlendingMode, BlendingRange, CopyMultiTarget());
 
-        public Signal(object origin, Launchpad source, byte index = 11, Color color = null, int[] macros = null, int layer = 0, BlendingType blending = BlendingType.Normal, int blendingrange = 200, Stack<int> multiTarget = null) {
+        public Signal With(DoubleTuple coords = null, Color color = null) => new Signal(Origin, Source, 11, color, (int[])Macros.Clone(), Layer, BlendingMode, BlendingRange, CopyMultiTarget(), coords);
+
+        public Signal(object origin, Launchpad source, byte index = 11, Color color = null, int[] macros = null, int layer = 0, BlendingType blending = BlendingType.Normal, int blendingrange = 200, Stack<int> multiTarget = null, DoubleTuple coords = null) {
             Origin = origin;
             Source = source;
             Index = index;
@@ -65,9 +68,10 @@ namespace Apollo.Structures {
             BlendingMode = blending;
             BlendingRange = blendingrange;
             MultiTarget = multiTarget?? new Stack<int>();
+            Coordinates = coords?? new DoubleTuple(0, 0);
         }
 
-        public Signal(InputType input, object origin, Launchpad source, byte index = 11, Color color = null, int[] macros = null, int layer = 0, BlendingType blending = BlendingType.Normal, int blendingrange = 200, Stack<int> multiTarget = null): this(
+        public Signal(InputType input, object origin, Launchpad source, byte index = 11, Color color = null, int[] macros = null, int layer = 0, BlendingType blending = BlendingType.Normal, int blendingrange = 200, Stack<int> multiTarget = null, DoubleTuple coords = null): this(
             origin,
             source,
             (input == InputType.DrumRack)? Converter.DRtoXY(index) : ((index == 99)? (byte)100 : index),
@@ -76,7 +80,8 @@ namespace Apollo.Structures {
             layer,
             blending,
             blendingrange,
-            multiTarget
+            multiTarget,
+            coords
         ) {}
 
         public override bool Equals(object obj) {
