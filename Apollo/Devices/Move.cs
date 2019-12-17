@@ -50,8 +50,8 @@ namespace Apollo.Devices {
                 return;
             }
 
-            if (Offset.Apply(n.Index, GridMode, Wrap, out int x, out int y, out int result)) {
-                n.Index = (byte)result;
+            if (Offset.Apply(n.Coordinates, GridMode, Wrap, out DoubleTuple newCoords)) {
+                n.Coordinates = newCoords;
                 InvokeExit(n);
             }
         }
