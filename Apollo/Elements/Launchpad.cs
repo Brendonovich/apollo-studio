@@ -152,6 +152,8 @@ namespace Apollo.Elements {
 
         public delegate void ReceiveEventHandler(Signal n);
         public event ReceiveEventHandler Receive;
+        
+        public DeviceLayout PadLayout = new DeviceLayout();
 
         protected void InvokeReceive(Signal n) => Receive?.Invoke(n);
 
@@ -212,7 +214,8 @@ namespace Apollo.Elements {
                             doingMK2VersionInquiry = true;
                             return LaunchpadType.Unknown;
                         }
-
+                            
+                        PadLayout.Pads = DeviceLayout.GenerateMK2Def();
                         return LaunchpadType.MK2;
                     
                     case 0x51: // Launchpad Pro
@@ -341,8 +344,9 @@ namespace Apollo.Elements {
                     if (n.Index % 10 == 0 || n.Index < 11 || n.Index == 100) return;
                     break;
             }
+            byte coords = PadLayout.PadAtCoords(n.Coordinates);
 
-            SysExSend(RGBHeader[Type].Concat(new byte[] {(byte)(n.Index + offset), r, g, b}).ToArray());
+            SysExSend(RGBHeader[Type].Concat(new byte[] {(byte)(coords), r, g, b}).ToArray());
         }
 
         public virtual void Clear(bool manual = false) {
@@ -482,13 +486,17 @@ namespace Apollo.Elements {
 
         byte InputColor(int input) => (byte)(Math.Max(Convert.ToInt32(input > 0), input >> 1));
 
-        public void NoteOn(object sender, in NoteOnMessage e) => HandleMessage(new Signal(
-            InputFormat,
-            this,
-            this,
-            (byte)e.Key,
-            new Color(InputColor(e.Velocity))
-        ));
+        public void NoteOn(object sender, in NoteOnMessage e){
+            DoubleTuple coordinates = Converter.IndexToCart((int)e.Key, Type);
+            HandleMessage(new Signal(
+                InputFormat,
+                this,
+                this,
+                (byte)e.Key,
+                new Color(InputColor(e.Velocity)),
+                coords: coordinates
+            ));
+        }
 
         void NoteOff(object sender, in NoteOffMessage e) => HandleMessage(new Signal(
             InputFormat,
@@ -507,7 +515,8 @@ namespace Apollo.Elements {
                             this,
                             this,
                             (byte)(e.Control - 13),
-                            new Color(InputColor(e.Value))
+                            new Color(InputColor(e.Value)),
+                            coords: Converter.IndexToCart(e.Control - 13, Type)
                         ));
                     break;
 
@@ -541,5 +550,9 @@ namespace Apollo.Elements {
         }
 
         public override string ToString() => (Available? "" : "(unavailable) ") + Name;
+        
+        
     }
 }
+
+
