@@ -50,10 +50,10 @@ namespace Apollo.Devices {
                 return;
             }
 
-            if (Offset.Apply(n.Coordinates, GridMode, Wrap, out DoubleTuple newCoords)) {
-                n.Coordinates = newCoords;
-                InvokeExit(n);
-            }
+            Offset.Apply(n.Coordinates, n.Source.PadLayout.bounds, Wrap, out DoubleTuple newCoords);
+            Signal m = n.With(newCoords, n.Color);
+            
+            InvokeExit(m);
         }
 
         public override void Dispose() {

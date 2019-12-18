@@ -57,14 +57,15 @@ namespace Apollo.Structures {
 
         public Action<Signal> ScreenExit;
 
-        Pixel[] _screen = new Pixel[101];
+        Pixel[] _screen;
 
-        public Screen() {
-            for (int i = 0; i < 101; i++)
+        public Screen(int pixelCount = 101) {
+            _screen = new Pixel[pixelCount];
+            for (int i = 0; i < pixelCount; i++)
                 _screen[i] = new Pixel() { Exit = (n) => ScreenExit?.Invoke(n) };
         }
 
-        public Color GetColor(int index) => _screen[index].GetColor();
+        public Color GetColor(int arrIndex) => _screen[arrIndex].GetColor();
 
         public void MIDIEnter(Signal n) => _screen[n.Index].MIDIEnter(n);
     }

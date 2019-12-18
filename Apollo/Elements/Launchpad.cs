@@ -153,7 +153,14 @@ namespace Apollo.Elements {
         public delegate void ReceiveEventHandler(Signal n);
         public event ReceiveEventHandler Receive;
         
-        public DeviceLayout PadLayout = new DeviceLayout();
+        HardwareLayout _padLayout;
+        public HardwareLayout PadLayout{
+            get => _padLayout;
+            set {
+                _padLayout = value;
+                screen = new Screen(PadLayout.Pads.Count);
+            }
+        }
 
         protected void InvokeReceive(Signal n) => Receive?.Invoke(n);
 
@@ -164,7 +171,9 @@ namespace Apollo.Elements {
         ulong signalCount = 0;
 
         protected void CreateScreen() {
-            screen = new Screen() { ScreenExit = Send };
+            screen = new Screen() { 
+                ScreenExit = Send
+            };
             buffer = new ConcurrentQueue<SysExMessage>();
             locker = new object();
             inputbuffer = (from i in Enumerable.Range(0, 101) select (int[])null).ToArray();
@@ -215,7 +224,8 @@ namespace Apollo.Elements {
                             return LaunchpadType.Unknown;
                         }
                             
-                        PadLayout.Pads = DeviceLayout.GenerateMK2Def();
+                        PadLayout = HardwareLayout.GenerateMK2Layout();
+                        
                         return LaunchpadType.MK2;
                     
                     case 0x51: // Launchpad Pro
@@ -328,11 +338,6 @@ namespace Apollo.Elements {
             int offset = 0;
 
             switch (Type) {
-                case LaunchpadType.MK2:
-                    if (n.Index % 10 == 0 || n.Index < 11 || n.Index == 99 || n.Index == 100) return;
-                    if (91 <= n.Index && n.Index <= 98) offset = 13;
-                    break;
-                
                 case LaunchpadType.PRO:
                 case LaunchpadType.CFW:
                     if (n.Index == 0 || n.Index == 9 || n.Index == 90 || n.Index == 99) return;
@@ -344,9 +349,10 @@ namespace Apollo.Elements {
                     if (n.Index % 10 == 0 || n.Index < 11 || n.Index == 100) return;
                     break;
             }
-            byte coords = PadLayout.PadAtCoords(n.Coordinates);
+            
+            byte index = PadLayout.Pads[n.Index].midiIndex;
 
-            SysExSend(RGBHeader[Type].Concat(new byte[] {(byte)(coords), r, g, b}).ToArray());
+            SysExSend(RGBHeader[Type].Concat(new byte[] {(byte)(index), r, g, b}).ToArray());
         }
 
         public virtual void Clear(bool manual = false) {
@@ -367,8 +373,12 @@ namespace Apollo.Elements {
         }
 
         public virtual void Render(Signal n) {
-            if (PatternWindow == null || n.Origin == PatternWindow)
+            if (PatternWindow == null || n.Origin == PatternWindow){
+                if(n.Coordinates == null) return;
+                n.Index = PadLayout.PadAtCoords(n.Coordinates);
+                if(n.Index == -1) return;
                 screen?.MIDIEnter(n);
+            }
         }
 
         public Launchpad() => CreateScreen();

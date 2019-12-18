@@ -110,41 +110,17 @@ namespace Apollo.Devices {
             public object locker = new object();
             public List<int> offsets;
             public List<Courier> timers = new List<Courier>();
+            
+            public List<DoubleTuple> tupleOffsets;
 
             public PolyInfo(Signal init_n, List<int> init_offsets) {
                 n = init_n;
                 offsets = init_offsets;
             }
-        }
-
-        class DoubleTuple {
-            public double X;
-            public double Y;
-
-            public DoubleTuple(double x = 0, double y = 0) {
-                X = x;
-                Y = y;
+            public PolyInfo(Signal init_n, List<DoubleTuple> init_offsets) {
+                n = init_n;
+                tupleOffsets = init_offsets;
             }
-
-            public IntTuple Round() => new IntTuple((int)Math.Round(X), (int)Math.Round(Y));
-
-            public static DoubleTuple operator *(DoubleTuple t, double f) => new DoubleTuple(t.X * f, t.Y * f);
-            public static DoubleTuple operator +(DoubleTuple a, DoubleTuple b) => new DoubleTuple(a.X + b.X, a.Y + b.Y);
-        };
-
-        class IntTuple {
-            public int X;
-            public int Y;
-
-            public IntTuple(int x, int y) {
-                X = x;
-                Y = y;
-            }
-
-            public IntTuple Apply(Func<int, int> action) => new IntTuple(
-                action.Invoke(X),
-                action.Invoke(Y)
-            );
         }
 
         CopyType _copymode;
@@ -246,8 +222,8 @@ namespace Apollo.Devices {
             courier.Start();
         }
 
-        void FireCourier((Signal n, List<int>) info, double time) {
-            Courier courier = timers[info.n.With(info.n.Index, new Color())] = new Courier() {
+        void FireCourier((Signal n, List<DoubleTuple>) info, double time) {
+            Courier courier = timers[info.n.With(info.n.Coordinates, new Color())] = new Courier() {
                 Info = info,
                 AutoReset = false,
                 Interval = time
@@ -264,24 +240,24 @@ namespace Apollo.Devices {
             
             if ((CopyMode == CopyType.Animate || CopyMode == CopyType.Interpolate) && courier.Info is PolyInfo info) {
                 lock (info.locker) {
-                    if (++info.index < info.offsets.Count && info.offsets[info.index] != -1) {
+                    if (++info.index < info.tupleOffsets.Count) {
                         Signal m = info.n.Clone();
-                        m.Index = (byte)info.offsets[info.index];
+                        m.Coordinates = info.tupleOffsets[info.index];
                         InvokeExit(m);
 
-                        if (info.index == info.offsets.Count - 1)
+                        if (info.index == info.tupleOffsets.Count - 1)
                             poly.Remove(info);
                     }
                 }
 
             } else if (CopyMode == CopyType.RandomLoop && courier.Info is ValueTuple<Signal, List<int>>) {
-                (Signal n, List<int> offsets) = ((Signal, List<int>))courier.Info;
+                (Signal n, List<DoubleTuple> offsets) = ((Signal, List<DoubleTuple>))courier.Info;
                 HandleRandomLoop(n, offsets);
             }
         }
 
-        void HandleRandomLoop(Signal original, List<int> offsets) {
-            Signal n = original.With(original.Index, new Color());
+        void HandleRandomLoop(Signal original, List<DoubleTuple> offsets) {
+            Signal n = original.With(original.Coordinates, new Color());
             Signal m = original.Clone();
 
             if (!locker.ContainsKey(n)) locker[n] = new object();
@@ -290,11 +266,11 @@ namespace Apollo.Devices {
                 if (!buffer.ContainsKey(n)) {
                     if (!m.Color.Lit) return;
                     buffer[n] = RNG.Next(offsets.Count);
-                    m.Index = (byte)offsets[buffer[n]];
+                    m.Coordinates = offsets[buffer[n]];
 
                 } else {
                     Signal o = original.Clone();
-                    o.Index = (byte)offsets[buffer[n]];
+                    o.Coordinates = offsets[buffer[n]];
                     o.Color = new Color(0);
                     InvokeExit(o);
 
@@ -304,7 +280,7 @@ namespace Apollo.Devices {
                             buffer[n] = RNG.Next(offsets.Count - 1);
                             if (buffer[n] >= old) buffer[n]++;
                         }
-                        m.Index = (byte)offsets[buffer[n]];
+                        m.Coordinates = offsets[buffer[n]];
                     
                     } else buffer.Remove(n, out int _);
                 }
@@ -320,88 +296,91 @@ namespace Apollo.Devices {
         }
 
         public override void MIDIProcess(Signal n) {
-            if (n.Index == 100) {
+            if (n.Index == 100 || ((n.Coordinates.X >= 4 && n.Coordinates.X <= 5) && n.Coordinates.Y == -1)) {
                 InvokeExit(n);
                 return;
             }
 
-            int px = n.Index % 10;
-            int py = n.Index / 10;
+            double startX = n.Coordinates.X;
+            double startY = n.Coordinates.Y;
 
-            List<int> validOffsets = new List<int>() {n.Index};
-            List<int> interpolatedOffsets = new List<int>() {n.Index};
+            List<DoubleTuple> validOffsets = new List<DoubleTuple>() {n.Coordinates};
+            List<DoubleTuple> interpolatedOffsets = new List<DoubleTuple>() {n.Coordinates};
 
             for (int i = 0; i < Offsets.Count; i++) {
-                if (Offsets[i].Apply(n.Index, GridMode, Wrap, out int _x, out int _y, out int result))
-                    validOffsets.Add(result);
+                Offsets[i].Apply(n.Coordinates, n.Source.PadLayout.bounds, Wrap, out DoubleTuple newCoords);
+                validOffsets.Add(newCoords);
 
                 if (CopyMode == CopyType.Interpolate) {
                     double angle = Angles[i] / 90.0 * Math.PI;
                     
-                    double x = _x;
-                    double y = _y;
+                    double endX = newCoords.X;
+                    double endY = newCoords.Y;
                     
                     int pointCount;
                     Func<int, DoubleTuple> pointGenerator;
 
-                    DoubleTuple source = new DoubleTuple(px, py);
-                    DoubleTuple target = new DoubleTuple(_x, _y);
+                    DoubleTuple source = n.Coordinates;
+                    DoubleTuple target = newCoords;
 
                     if (angle != 0) {
                         // https://www.desmos.com/calculator/hizsxmojxz
 
-                        double diam = Math.Sqrt(Math.Pow(px - x, 2) + Math.Pow(py - y, 2));
-                        double commonTan = Math.Atan((px - x) / (y - py));
+                        double diam = Math.Sqrt(Math.Pow(startX - endX, 2) + Math.Pow(startY - endY, 2));
+                        double commonTan = Math.Atan((startX - endX) / (endY - startY));
 
-                        double cord = diam / (2 * Math.Tan(Math.PI - angle / 2)) * (((y - py) >= 0)? 1 : -1);
+                        double cord = diam / (2 * Math.Tan(Math.PI - angle / 2)) * (((endY - startY) >= 0)? 1 : -1);
                         
                         DoubleTuple center = new DoubleTuple(
-                            (px + x) / 2 + Math.Cos(commonTan) * cord,
-                            (py + y) / 2 + Math.Sin(commonTan) * cord
+                            (startX + endX) / 2 + Math.Cos(commonTan) * cord,
+                            (startY + endY) / 2 + Math.Sin(commonTan) * cord
                         );
                         
                         double radius = diam / (2 * Math.Sin(Math.PI - angle / 2));
                         
-                        double u = (Convert.ToInt32(angle < 0) * (Math.PI + angle) + Math.Atan2(py - center.Y, px - center.X)) % (2 * Math.PI);
-                        double v = (Convert.ToInt32(angle < 0) * (Math.PI - angle) + Math.Atan2(y - center.Y, x - center.X)) % (2 * Math.PI);
+                        double u = (Convert.ToInt32(angle < 0) * (Math.PI + angle) + Math.Atan2(startY - center.Y, startX - center.X)) % (2 * Math.PI);
+                        double v = (Convert.ToInt32(angle < 0) * (Math.PI - angle) + Math.Atan2(endY - center.Y, endX - center.X)) % (2 * Math.PI);
                         v += (u <= v)? 0 : 2 * Math.PI;
                         
                         double startAngle = (angle < 0)? v : u;
                         double endAngle = (angle < 0)? u : v;
 
-                        pointCount = (int)(Math.Abs(radius) * Math.Abs(endAngle - startAngle) * 1.5);
+                        pointCount = (int)(Math.Abs(radius) * Math.Abs(endAngle - startAngle) * 5);
                         pointGenerator = t => CircularInterp(center, radius, startAngle, endAngle, t, pointCount);
                         
                     } else {
-                        IntTuple p = new IntTuple(px, py);
+                        DoubleTuple p = new DoubleTuple(startX, startY);
 
-                        IntTuple d = new IntTuple(
-                            _x - px,
-                            _y - py
+                        DoubleTuple d = new DoubleTuple(
+                            endX - startX,
+                            endY - startY
                         );
 
-                        IntTuple a = d.Apply(v => Math.Abs(v));
-                        IntTuple b = d.Apply(v => (v < 0)? -1 : 1);
+                        DoubleTuple a = d.Apply(v => Math.Abs(v));
+                        DoubleTuple b = d.Apply(v => (v < 0)? -1 : 1);
 
-                        pointCount = Math.Max(a.X, a.Y);
+                        pointCount = (int)Math.Round(Math.Max(a.X, a.Y));
                         pointGenerator = t => LineGenerator(p, a, b, t);
                     }
-                        
+                    
+                    int lastPad = -1;
+                    int currentPad;
                     for (int p = 1; p <= pointCount; p++) {
                         DoubleTuple doublepoint = pointGenerator.Invoke(p);
-                        IntTuple point = doublepoint.Round();
-
-                        if (Math.Pow(doublepoint.X - point.X, 2.16) + Math.Pow(doublepoint.Y - point.Y, 2.16) > .25) continue;
-
-                        bool valid = Offset.Validate(point.X, point.Y, GridMode, Wrap, out int iresult);
-
-                        if (iresult != interpolatedOffsets.Last())
-                            interpolatedOffsets.Add(valid? iresult : -1);
+                        
+                        if(Wrap){
+                            doublepoint = Offset.Wrap(doublepoint, n.Source.PadLayout.bounds);
+                        }
+                        
+                        if((currentPad = n.Source.PadLayout.PadAtCoords(doublepoint)) != -1 && currentPad != lastPad){
+                            interpolatedOffsets.Add(doublepoint);
+                            lastPad =  currentPad;
+                        }
                     }
                 }
-
-                px = _x;
-                py = _y;
+                
+                startX = newCoords.X;
+                startY = newCoords.Y;
             }
 
             if (CopyMode == CopyType.Interpolate) validOffsets = interpolatedOffsets;
@@ -411,7 +390,7 @@ namespace Apollo.Devices {
 
                 for (int i = 1; i < validOffsets.Count; i++) {
                     Signal m = n.Clone();
-                    m.Index = (byte)validOffsets[i];
+                    m.Coordinates = validOffsets[i];
 
                     InvokeExit(m);
                 }
@@ -422,8 +401,8 @@ namespace Apollo.Devices {
                 lock (locker[n]) {
                     if (Reverse) validOffsets.Reverse();
 
-                    if (validOffsets[0] != -1)
-                        InvokeExit(n.With((byte)validOffsets[0], n.Color));
+                    if (validOffsets[0] != null)
+                        InvokeExit(n.With(validOffsets[0], n.Color));
                     
                     PolyInfo info = new PolyInfo(n, validOffsets);
                     poly.Add(info);
@@ -441,10 +420,11 @@ namespace Apollo.Devices {
 
                 if (!buffer.ContainsKey(n)) {
                     if (!m.Color.Lit) return;
-                    buffer[n] = m.Index = (byte)validOffsets[RNG.Next(validOffsets.Count)];
+                    buffer[n] = RNG.Next(validOffsets.Count);
+                    m.Coordinates = validOffsets[buffer[n]];
 
                 } else {
-                    m.Index = (byte)buffer[n];
+                    m.Coordinates = validOffsets[buffer[n]];
                     if (!m.Color.Lit) buffer.Remove(n, out int _);
                 }
 
@@ -481,19 +461,21 @@ namespace Apollo.Devices {
             double angle = startAngle + (endAngle - startAngle) * ((double)t / pointCount);
 
             return new DoubleTuple(
-                center.X + radius * Math.Cos(angle),
-                center.Y + radius * Math.Sin(angle)
+                (double)(center.X + radius * Math.Cos(angle)),
+                (double)(center.Y + radius * Math.Sin(angle))
             );
         }
         
-        DoubleTuple LineGenerator(IntTuple p, IntTuple a, IntTuple b, int t) => (a.X > a.Y)
+        DoubleTuple LineGenerator(DoubleTuple p, DoubleTuple a, DoubleTuple b, int t) => (a.X > a.Y)
             ? new DoubleTuple(
-                p.X + t * b.X,
-                p.Y + (int)Math.Round((double)t / a.X * a.Y) * b.Y
+                (p.X + t * b.X),
+                (p.Y + (int)Math.Round((t / a.X * a.Y)) * b.Y)
             )
             : new DoubleTuple(
-                p.X + (int)Math.Round((double)t / a.Y * a.X) * b.X,
-                p.Y + t * b.Y
+                (p.X + (int)Math.Round((t / a.Y * a.X)) * b.X),
+                (p.Y + t * b.Y)
             );
     }
 }
+
+

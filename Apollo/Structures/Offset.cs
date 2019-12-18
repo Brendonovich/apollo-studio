@@ -70,47 +70,36 @@ namespace Apollo.Structures {
             AbsoluteY = ay;
         }
         
-        static double Wrap(double coord, GridType gridMode) => (gridMode == GridType.Square)? ((coord + 7) % 8 + 1) : (coord + 10) % 10;
-
-        public static bool Validate(DoubleTuple coords, GridType gridMode, bool wrap, out DoubleTuple newCoords) {
-            if (wrap) {
-                coords = coords.Apply(l => Wrap(l, gridMode));
+        public static DoubleTuple Wrap(DoubleTuple coord, Bounds gridBounds){ 
+            if(coord.X < gridBounds.X){
+                while(coord.X < gridBounds.X)
+                    coord.X += gridBounds.Width;
+            } else if(coord.X > gridBounds.X + gridBounds.Width){
+                while(coord.X > gridBounds.X + gridBounds.Width)
+                    coord.X -= gridBounds.Width;
             }
             
-            newCoords = coords;
-
-            if (gridMode == GridType.Full) {
-                if (-5 <= coords.X && coords.X <= 5 && -5 <= coords.Y && coords.Y <= 5)
-                    return true;
-                
-                if (coords.Y == -1 && -5 <= coords.X && coords.X <= 5) {
-                    return true;
-                }
-
-            } else if (gridMode == GridType.Square)
-                if (-4 <= coords.X && coords.X <= 4 && -4 <= coords.Y && coords.Y <= 4)
-                    return true;
-             
-            return false;
+            if(coord.Y < gridBounds.Y){
+                while(coord.Y < gridBounds.Y)
+                    coord.Y += gridBounds.Height;
+            } else if(coord.Y > gridBounds.Y + gridBounds.Height){
+                while(coord.Y > gridBounds.Y + gridBounds.Height)
+                    coord.Y -= gridBounds.Height;
+            }
+            
+            return coord;
         }
 
-        public bool Apply(DoubleTuple coords, GridType gridMode, bool wrap, out DoubleTuple newCoords) {
+        public void Apply(DoubleTuple coords, Bounds gridMode, bool wrap, out DoubleTuple newCoords) {
             if (IsAbsolute) {
                 coords.X = AbsoluteX;
                 coords.Y = AbsoluteY;
-                return Validate(coords, gridMode, wrap, out newCoords);
             }
 
             newCoords = coords.Clone();
 
-            if (gridMode == GridType.Square && (newCoords.X == 0 || newCoords.X == 9 || newCoords.Y == 0 || newCoords.Y == 9)) {
-                return false;
-            }
-
             newCoords.X += X;
             newCoords.Y += Y;
-
-            return Validate(newCoords, gridMode, wrap, out newCoords);
         }
 
         public void Dispose() => Changed = null;

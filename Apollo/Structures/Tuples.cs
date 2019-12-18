@@ -20,6 +20,8 @@ namespace Apollo.Structures{
             action.Invoke(X),
             action.Invoke(Y)
         );
+        
+        public double DistanceTo(DoubleTuple point) => Math.Sqrt(Math.Pow(X - point.X, 2) + Math.Pow(Y - point.Y, 2));
     };
 
     public class IntTuple {
