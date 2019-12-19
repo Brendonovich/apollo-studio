@@ -34,7 +34,7 @@ namespace Apollo.Components {
 
         HashSet<IDisposable> observables = new HashSet<IDisposable>();
 
-        public delegate void ChangedEventHandler(int x, int y, int? old_x, int? old_y);
+        public delegate void ChangedEventHandler(double x, double y, double? old_x, double? old_y);
         public event ChangedEventHandler Changed, AbsoluteChanged;
         
         public delegate void SwitchedEventHandler();
@@ -45,8 +45,8 @@ namespace Apollo.Components {
         TextBlock Display;
         TextBox InputX, InputY;
 
-        int _x = 0;
-        public int X {
+        double _x = 0;
+        public double X {
             get => _x;
             set {
                 value = Math.Max(-9, Math.Min(9, value));
@@ -59,8 +59,8 @@ namespace Apollo.Components {
             }
         }
 
-        int _y = 0;
-        public int Y {
+        double _y = 0;
+        public double Y {
             get => _y;
             set {
                 value = Math.Max(-9, Math.Min(9, value));
@@ -73,11 +73,11 @@ namespace Apollo.Components {
             }
         }
 
-        int _ax = 0;
-        public int AbsoluteX {
+        double _ax = 0;
+        public double AbsoluteX {
             get => _ax;
             set {
-                value = Math.Max(0, Math.Min(9, value));
+                value = Math.Max(-5, Math.Min(5, value));
                 if (value != _ax) {
                     _ax = value;
                     DrawPoint();
@@ -86,11 +86,11 @@ namespace Apollo.Components {
             }
         }
 
-        int _ay = 0;
-        public int AbsoluteY {
+        double _ay = 0;
+        public double AbsoluteY {
             get => _ay;
             set {
-                value = Math.Max(0, Math.Min(9, value));
+                value = Math.Max(-5, Math.Min(5, value));
                 if (value != _ay) {
                     _ay = value;
                     DrawPoint();
@@ -100,8 +100,8 @@ namespace Apollo.Components {
         }
 
         Canvas CurrentCanvas => AbsoluteCanvas.IsVisible? AbsoluteCanvas : PlaneCanvas;
-        int CurrentX => AbsoluteCanvas.IsVisible? AbsoluteX : X;
-        int CurrentY => AbsoluteCanvas.IsVisible? AbsoluteY : Y;
+        double CurrentX => AbsoluteCanvas.IsVisible? AbsoluteX : X;
+        double CurrentY => AbsoluteCanvas.IsVisible? AbsoluteY : Y;
 
         string ValueString => $"({(AbsoluteCanvas.IsVisible? _ax : _x)}, {(AbsoluteCanvas.IsVisible? _ay : _y)})";
 
@@ -109,8 +109,8 @@ namespace Apollo.Components {
             Canvas.SetLeft(Point, 18 + 2 * _x);
             Canvas.SetTop(Point, 18 - 2 * _y);
 
-            Canvas.SetLeft(AbsolutePoint, 4 * _ax);
-            Canvas.SetTop(AbsolutePoint, 36 - 4 * _ay);
+            Canvas.SetLeft(AbsolutePoint, 18 + 2 * _ax);
+            Canvas.SetTop(AbsolutePoint, 18 - 2 * _ay);
 
             Display.Text = ValueString;
         }
@@ -163,13 +163,14 @@ namespace Apollo.Components {
         }
 
         bool mouseHeld = false;
-        int old_x, old_y;
+        double old_x, old_y;
         double lastX, lastY;
+        bool shouldSwitchMode = true;
 
         void MouseDown(object sender, PointerPressedEventArgs e) {
             PointerUpdateKind MouseButton = e.GetCurrentPoint(this).Properties.PointerUpdateKind;
 
-            if (MouseButton == PointerUpdateKind.LeftButtonPressed) {
+            if (MouseButton == PointerUpdateKind.LeftButtonPressed || MouseButton == PointerUpdateKind.RightButtonPressed) {
                 if (e.ClickCount == 2) {
                     DisplayPressed(sender, e);
                     return;
@@ -205,29 +206,68 @@ namespace Apollo.Components {
 
                 CurrentCanvas.Cursor = new Cursor(StandardCursorType.Hand);
 
-            } else if (!mouseHeld && MouseButton == PointerUpdateKind.RightButtonReleased)
-                Switched?.Invoke();
+            } else if (MouseButton == PointerUpdateKind.RightButtonReleased){
+                mouseHeld = false;
+                e.Pointer.Capture(null);
+                
+                if(shouldSwitchMode){
+                    Switched?.Invoke();
+                } else {
+                    shouldSwitchMode = true;
+                    if (AbsoluteCanvas.IsVisible) {
+                        if (old_x != AbsoluteX || old_y != AbsoluteY)
+                            AbsoluteChanged?.Invoke(AbsoluteX, AbsoluteY, old_x, old_y);
+
+                    } else {
+                        if (old_x != X || old_y != Y)
+                            Changed?.Invoke(X, Y, old_x, old_y);
+                    }
+                }
+                
+                CurrentCanvas.Cursor = new Cursor(StandardCursorType.Hand);
+            }
+                
         }
 
         void MouseMove(object sender, PointerEventArgs e) {
             if (mouseHeld) {
-                double x = e.GetPosition(CurrentCanvas).X;
-                double y = e.GetPosition(CurrentCanvas).Y;
+                if(e.InputModifiers.HasFlag(InputModifiers.LeftMouseButton)){
+                    double x = e.GetPosition(CurrentCanvas).X;
+                    double y = e.GetPosition(CurrentCanvas).Y;
 
-                if (Math.Abs(x - lastX) >= 4) {
-                    int change = (int)((x - lastX) / 4);
+                    if (Math.Abs(x - lastX) >= 4) {
+                        int change = (int)((x - lastX) / 4);
 
-                    if (AbsoluteCanvas.IsVisible) AbsoluteX += change;
-                    else X += change;
+                        if (AbsoluteCanvas.IsVisible) AbsoluteX = Math.Round(change + AbsoluteX, 1);
+                        else X = Math.Round(X + change, 1);
+                        
+                        lastX = x;
+                    }
+
+                    if (Math.Abs(y - lastY) >= 4) {
+                        int change = -(int)((y - lastY) / 4);
+
+                        if (AbsoluteCanvas.IsVisible) AbsoluteY = Math.Round(AbsoluteY + change, 1);
+                        else Y = Math.Round(Y + change, 1);
+
+                        lastY = y;
+                    }
+                } else if(e.InputModifiers.HasFlag(InputModifiers.RightMouseButton)){
+                    shouldSwitchMode = false;
+                    double x = e.GetPosition(CurrentCanvas).X;
+                    double y = e.GetPosition(CurrentCanvas).Y;
+
+                    double changeX = (x - lastX) / 8;
+
+                    if (AbsoluteCanvas.IsVisible) AbsoluteX = Math.Round(changeX + AbsoluteX, 1);
+                    else X = Math.Round(X + changeX, 1);
                     
                     lastX = x;
-                }
 
-                if (Math.Abs(y - lastY) >= 4) {
-                    int change = -(int)((y - lastY) / 4);
+                    double changeY = -(y - lastY) / 8;
 
-                    if (AbsoluteCanvas.IsVisible) AbsoluteY += change;
-                    else Y += change;
+                    if (AbsoluteCanvas.IsVisible) AbsoluteY = Math.Round(AbsoluteY + changeY, 1);
+                    else Y = Math.Round(Y + changeY, 1);
 
                     lastY = y;
                 }
@@ -237,20 +277,20 @@ namespace Apollo.Components {
         Action InputX_Update = null, InputY_Update = null;
 
         void InputX_Changed(string text) {
-            int x = Input_Changed(InputX, InputX_Update, CurrentX, text);
+            double x = Input_Changed(InputX, InputX_Update, CurrentX, text);
 
             if (AbsoluteCanvas.IsVisible) AbsoluteX = x;
             else X = x;
         }
 
         void InputY_Changed(string text) {
-            int y = Input_Changed(InputY, InputY_Update, CurrentY, text);
+            double y = Input_Changed(InputY, InputY_Update, CurrentY, text);
             
             if (AbsoluteCanvas.IsVisible) AbsoluteY = y;
             else Y = y;
         }
 
-        int Input_Changed(TextBox Input, Action Update, int RawValue, string text) {
+        double Input_Changed(TextBox Input, Action Update, double RawValue, string text) {
             if (text == null) return RawValue;
             if (text == "") return RawValue;
 

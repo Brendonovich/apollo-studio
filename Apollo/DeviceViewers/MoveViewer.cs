@@ -56,15 +56,15 @@ namespace Apollo.DeviceViewers {
             _move = null;
         }
 
-        void Offset_Changed(int x, int y, int? old_x, int? old_y) {
+        void Offset_Changed(double x, double y, double? old_x, double? old_y) {
             _move.Offset.X = x;
             _move.Offset.Y = y;
 
             if (old_x != null && old_y != null) {
-                int ux = old_x.Value;
-                int uy = old_y.Value;
-                int rx = x;
-                int ry = y;
+                double ux = old_x.Value;
+                double uy = old_y.Value;
+                double rx = x;
+                double ry = y;
 
                 List<int> path = Track.GetPath(_move);
 
@@ -81,15 +81,15 @@ namespace Apollo.DeviceViewers {
             }
         }
 
-        void Offset_AbsoluteChanged(int x, int y, int? old_x, int? old_y) {
+        void Offset_AbsoluteChanged(double x, double y, double? old_x, double? old_y) {
             _move.Offset.AbsoluteX = x;
             _move.Offset.AbsoluteY = y;
 
             if (old_x != null && old_y != null) {
-                int ux = old_x.Value;
-                int uy = old_y.Value;
-                int rx = x;
-                int ry = y;
+                double ux = old_x.Value;
+                double uy = old_y.Value;
+                double rx = x;
+                double ry = y;
 
                 List<int> path = Track.GetPath(_move);
 

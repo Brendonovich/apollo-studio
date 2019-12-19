@@ -5,22 +5,22 @@ namespace Apollo.Structures {
         public delegate void ChangedEventHandler(Offset sender);
         public event ChangedEventHandler Changed;
 
-        int _x = 0;
-        public int X {
+        double _x = 0;
+        public double X {
             get => _x;
             set {
-                if (-9 <= value && value <= 9 && _x != value) {
+                if (_x != value) {
                     _x = value;
                     Changed?.Invoke(this);
                 }
             }
         }
 
-        int _y = 0;
-        public int Y {
+        double _y = 0;
+        public double Y {
             get => _y;
             set {
-                if (-9 <= value && value <= 9 && _y != value) {
+                if (_y != value) {
                     _y = value;
                     Changed?.Invoke(this);
                 }
@@ -38,31 +38,27 @@ namespace Apollo.Structures {
             }
         }
 
-        int _ax = 5;
-        public int AbsoluteX {
+        double _ax = 0.5;
+        public double AbsoluteX {
             get => _ax;
             set {
-                if (0 <= value && value <= 9 && _ax != value) {
-                    _ax = value;
-                    Changed?.Invoke(this);
-                }
+                _ax = value;
+                Changed?.Invoke(this);
             }
         }
 
-        int _ay = 5;
-        public int AbsoluteY {
+        double _ay = 0.5;
+        public double AbsoluteY {
             get => _ay;
             set {
-                if (0 <= value && value <= 9 && _ay != value) {
-                    _ay = value;
-                    Changed?.Invoke(this);
-                }
+                _ay = value;
+                Changed?.Invoke(this);
             }
         }
         
         public Offset Clone() => new Offset(X, Y, IsAbsolute, AbsoluteX, AbsoluteY);
 
-        public Offset(int x = 0, int y = 0, bool absolute = false, int ax = 5, int ay = 5) {
+        public Offset(double x = 0, double y = 0, bool absolute = false, double ax = 0.5, double ay = 0.5) {
             X = x;
             Y = y;
             IsAbsolute = absolute;
@@ -91,15 +87,16 @@ namespace Apollo.Structures {
         }
 
         public void Apply(DoubleTuple coords, Bounds gridMode, bool wrap, out DoubleTuple newCoords) {
-            if (IsAbsolute) {
-                coords.X = AbsoluteX;
-                coords.Y = AbsoluteY;
-            }
-
             newCoords = coords.Clone();
-
-            newCoords.X += X;
-            newCoords.Y += Y;
+            
+            if (IsAbsolute) {
+                newCoords.X = AbsoluteX;
+                newCoords.Y = AbsoluteY;
+                return;
+            } else{
+                newCoords.X += X;
+                newCoords.Y += Y;
+            }
         }
 
         public void Dispose() => Changed = null;

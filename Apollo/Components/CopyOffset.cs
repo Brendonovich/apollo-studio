@@ -68,15 +68,15 @@ namespace Apollo.Components {
 
         void Offset_Remove() => OffsetRemoved?.Invoke(_copy.Offsets.IndexOf(_offset));
 
-        void Offset_Changed(int x, int y, int? old_x, int? old_y) {
+        void Offset_Changed(double x, double y, double? old_x, double? old_y) {
             _offset.X = x;
             _offset.Y = y;
 
             if (old_x != null && old_y != null) {
-                int ux = old_x.Value;
-                int uy = old_y.Value;
-                int rx = x;
-                int ry = y;
+                double ux = old_x.Value;
+                double uy = old_y.Value;
+                double rx = x;
+                double ry = y;
                 int index = _copy.Offsets.IndexOf(_offset);
 
                 List<int> path = Track.GetPath(_copy);
@@ -94,15 +94,15 @@ namespace Apollo.Components {
             }
         }
 
-        void Offset_AbsoluteChanged(int x, int y, int? old_x, int? old_y) {
+        void Offset_AbsoluteChanged(double x, double y, double? old_x, double? old_y) {
             _offset.AbsoluteX = x;
             _offset.AbsoluteY = y;
 
             if (old_x != null && old_y != null) {
-                int ux = old_x.Value;
-                int uy = old_y.Value;
-                int rx = x;
-                int ry = y;
+                double ux = old_x.Value;
+                double uy = old_y.Value;
+                double rx = x;
+                double ry = y;
                 int index = _copy.Offsets.IndexOf(_offset);
 
                 List<int> path = Track.GetPath(_copy);
