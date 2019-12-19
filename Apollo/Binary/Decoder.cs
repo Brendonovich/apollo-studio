@@ -532,13 +532,29 @@ namespace Apollo.Binary {
             } else if (t == typeof(Preview))
                 return new Preview();
             
-            else if (t == typeof(Rotate))
+            else if (t == typeof(Rotate)){
+                double angle = 0;
+                if(version <= 27){
+                    RotateType type = (RotateType)reader.ReadInt32();
+                    switch(type){
+                    case RotateType.D90:
+                        angle = Math.PI / 2;
+                        break;
+                    case RotateType.D180:
+                        angle = Math.PI;
+                        break;
+                    case RotateType.D270:
+                        angle = -Math.PI / 2;
+                        break;
+                    }
+                } else {
+                    angle = reader.ReadDouble();
+                }
                 return new Rotate(
-                    (RotateType)reader.ReadInt32(),
+                    angle,
                     reader.ReadBoolean()
                 );
-            
-            else if (t == typeof(Switch)) {
+            } else if (t == typeof(Switch)) {
                 int target = (version >= 25)? reader.ReadInt32() : 1;
                 int value = reader.ReadInt32();
 

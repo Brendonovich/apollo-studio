@@ -1,3 +1,4 @@
+using System;
 using Apollo.DeviceViewers;
 using Apollo.Elements;
 using Apollo.Enums;
@@ -5,13 +6,13 @@ using Apollo.Structures;
 
 namespace Apollo.Devices {
     public class Rotate: Device {
-        RotateType _mode;
-        public RotateType Mode {
-            get => _mode;
+        double _angle;
+        public double Angle {
+            get => _angle;
             set {
-                _mode = value;
+                _angle = value;
                 
-                if (Viewer?.SpecificViewer != null) ((RotateViewer)Viewer.SpecificViewer).SetMode(Mode);
+                if (Viewer?.SpecificViewer != null) ((RotateViewer)Viewer.SpecificViewer).SetAngle(Angle);
             }
         }
 
@@ -25,30 +26,28 @@ namespace Apollo.Devices {
             }
         }
 
-        public override Device Clone() => new Rotate(Mode, Bypass) {
+        public override Device Clone() => new Rotate(Angle, Bypass) {
             Collapsed = Collapsed,
             Enabled = Enabled
         };
 
-        public Rotate(RotateType mode = RotateType.D90, bool bypass = false): base("rotate") {
-            Mode = mode;
+        public Rotate(double angle = 0, bool bypass = false): base("rotate") {
+            Angle = angle;
             Bypass = bypass;
         }
 
         public override void MIDIProcess(Signal n) {
             if (Bypass) InvokeExit(n.Clone());
             
-            if (Mode == RotateType.D90) {
-                n.Index = (byte)((9 - n.Index % 10) * 10 + n.Index / 10);
+            double x = n.Coordinates.X;
+            double y = n.Coordinates.Y;
+            
+            double cos = Math.Cos(Angle);
+            double sin = Math.Sin(Angle);
+            
+            Signal m = n.With(new DoubleTuple(x * cos + sin * y, y * cos - sin * x), n.Color);
 
-            } else if (Mode == RotateType.D180) {
-                n.Index = (byte)((9 - n.Index / 10) * 10 + 9 - n.Index % 10);
-
-            } else if (Mode == RotateType.D270) {
-                n.Index = (byte)((n.Index % 10) * 10 + 9 - n.Index / 10);
-            }
-
-            InvokeExit(n);
+            InvokeExit(m);
         }
     }
 }
