@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
+using Apollo.Components;
 using Apollo.Core;
 using Apollo.Devices;
 using Apollo.Elements;
@@ -18,12 +19,12 @@ namespace Apollo.DeviceViewers {
         void InitializeComponent() {
             AvaloniaXamlLoader.Load(this);
             
-            RotateMode = this.Get<ComboBox>("RotateMode");
+            Angle = this.Get<Dial>("Angle");
             Bypass = this.Get<CheckBox>("Bypass");
         }
         
         Rotate _rotate;
-        ComboBox RotateMode;
+        Dial Angle;
         CheckBox Bypass;
 
         public RotateViewer() => new InvalidOperationException();
@@ -33,31 +34,33 @@ namespace Apollo.DeviceViewers {
 
             _rotate = rotate;
 
-            RotateMode.SelectedIndex = (int)_rotate.Mode;
+            Angle.RawValue = (int)(_rotate.Angle / Math.PI * 180);
             Bypass.IsChecked = _rotate.Bypass;
         }
 
         void Unloaded(object sender, VisualTreeAttachmentEventArgs e) => _rotate = null;
-
-        void Mode_Changed(object sender, SelectionChangedEventArgs e) {
-            RotateType selected = (RotateType)RotateMode.SelectedIndex;
-
-            if (_rotate.Mode != selected) {
-                RotateType u = _rotate.Mode;
-                RotateType r = selected;
+        
+        public void Angle_Changed(Dial sender, double angle, double? old){
+            if(old != null && old.Value != angle){
                 List<int> path = Track.GetPath(_rotate);
+                
+                double u = old.Value / 180 * Math.PI;
+                double r = angle / 180 * Math.PI;
 
-                Program.Project.Undo.Add($"Rotate Angle Changed to {((ComboBoxItem)RotateMode.ItemContainerGenerator.ContainerFromIndex((int)r)).Content}", () => {
-                    Track.TraversePath<Rotate>(path).Mode = u;
+                Program.Project.Undo.Add($"Rotate Angle Changed to {angle}{Angle.Unit}", () => {
+                    Rotate rotate = Track.TraversePath<Rotate>(path);
+                    rotate.Angle = u;
+
                 }, () => {
-                    Track.TraversePath<Rotate>(path).Mode = r;
+                    Rotate rotate = Track.TraversePath<Rotate>(path);
+                    rotate.Angle = r;
                 });
-
-                _rotate.Mode = selected;
             }
+            
+            _rotate.Angle = angle / 180 * Math.PI;
         }
 
-        public void SetMode(RotateType mode) => RotateMode.SelectedIndex = (int)mode;
+        public void SetAngle(double angle) => Angle.RawValue = (int)(angle / Math.PI * 180);
 
         void Bypass_Changed(object sender, RoutedEventArgs e) {
             bool value = Bypass.IsChecked.Value;

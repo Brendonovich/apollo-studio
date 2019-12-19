@@ -329,12 +329,6 @@ namespace Apollo.Elements {
             byte g = (byte)(n.Color.Green * (IsGenerationX? 2 : 1));
             byte b = (byte)(n.Color.Blue * (IsGenerationX? 2 : 1));
 
-            if (n.Index != 100) {
-                if (Rotation == RotationType.D90) n.Index = (byte)((n.Index % 10) * 10 + 9 - n.Index / 10);
-                else if (Rotation == RotationType.D180) n.Index = (byte)((9 - n.Index / 10) * 10 + 9 - n.Index % 10);
-                else if (Rotation == RotationType.D270) n.Index = (byte)((9 - n.Index % 10) * 10 + n.Index / 10);
-            }
-
             int offset = 0;
 
             switch (Type) {
